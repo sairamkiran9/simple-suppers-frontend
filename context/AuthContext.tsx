@@ -10,12 +10,14 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { makeRedirectUri } from 'expo-auth-session';
+import * as AuthSession from "expo-auth-session";
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { auth, db } from '@/config/firebase';
 import { AuthContextType, User } from '@/types/auth';
 
 WebBrowser.maybeCompleteAuthSession();
+
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -27,9 +29,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: "948449411635-dbihbjbvcitoakmlcgbpburh2bl9j0ve.apps.googleusercontent.com",
     redirectUri: makeRedirectUri({
-      scheme: 'myapp',
-      path: 'redirect',
+      useProxy: true
     }),
+    responseType: "id_token",
+    scopes: ["openid", "email", "profile"],
   });
 
   useEffect(() => {
