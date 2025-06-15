@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthInput } from './AuthInput';
 import { AuthButton } from './AuthButton';
+import { GoogleSignInButton } from './GoogleSignInButton';
 import { useAuth } from '@/context/AuthContext';
 
 export default function AuthScreen() {
@@ -15,7 +16,7 @@ export default function AuthScreen() {
   });
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
 
-  const { login, register, loading, error } = useAuth();
+  const { login, register, loginWithGoogle, loading, error } = useAuth();
 
   const validateForm = () => {
     const errors: {[key: string]: string} = {};
@@ -54,6 +55,10 @@ export default function AuthScreen() {
       setFormData({ name: '', email: '', password: '' });
       setFormErrors({});
     }
+  };
+
+  const handleGoogleSignIn = async () => {
+    await loginWithGoogle();
   };
 
   const switchMode = () => {
@@ -130,6 +135,21 @@ export default function AuthScreen() {
                 loading={loading}
               />
 
+              {isLogin && (
+                <>
+                  <View style={styles.divider}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>or</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+
+                  <GoogleSignInButton
+                    onPress={handleGoogleSignIn}
+                    loading={loading}
+                  />
+                </>
+              )}
+
               <AuthButton
                 title={isLogin ? 'Need an account? Sign Up' : 'Already have an account? Sign In'}
                 onPress={switchMode}
@@ -202,5 +222,21 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontSize: 14,
     textAlign: 'center',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

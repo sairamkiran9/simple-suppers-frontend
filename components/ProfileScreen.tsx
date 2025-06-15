@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LogOut, User, Mail, Calendar } from 'lucide-react-native';
@@ -27,12 +27,16 @@ export default function ProfileScreen() {
         <View style={styles.content}>
           <View style={styles.header}>
             <View style={styles.avatarContainer}>
-              <LinearGradient
-                colors={['#007AFF', '#5856D6']}
-                style={styles.avatar}
-              >
-                <User size={40} color="#FFFFFF" />
-              </LinearGradient>
+              {user.photoURL ? (
+                <Image source={{ uri: user.photoURL }} style={styles.avatarImage} />
+              ) : (
+                <LinearGradient
+                  colors={['#007AFF', '#5856D6']}
+                  style={styles.avatar}
+                >
+                  <User size={40} color="#FFFFFF" />
+                </LinearGradient>
+              )}
             </View>
             <Text style={styles.welcomeText}>Welcome back!</Text>
             <Text style={styles.nameText}>{user.name}</Text>
@@ -109,6 +113,11 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   welcomeText: {
     fontSize: 16,

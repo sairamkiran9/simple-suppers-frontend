@@ -1,32 +1,92 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithCredential,
+  updateProfile
+} from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { makeRedirectUri } from 'expo-auth-session';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import { auth, db } from '@/config/firebase';
 import { AuthContextType, User } from '@/types/auth';
-import { storage } from '@/utils/storage';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    clientId: "948449411635-dbihbjbvcitoakmlcgbpburh2bl9j0ve.apps.googleusercontent.com",
+    redirectUri: makeRedirectUri({
+      scheme: 'myapp',
+      path: 'redirect',
+    }),
+  });
+
   useEffect(() => {
-    loadStoredAuth();
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Get additional user data from Firestore
+        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        const userData = userDoc.data();
+        
+        setUser({
+          id: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          name: userData?.name || firebaseUser.displayName || '',
+          createdAt: userData?.createdAt || firebaseUser.metadata.creationTime || new Date().toISOString(),
+          photoURL: firebaseUser.photoURL || undefined,
+        });
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    return unsubscribe;
   }, []);
 
-  const loadStoredAuth = async () => {
-    try {
-      const storedToken = await storage.getItem('auth_token');
-      const storedUser = await storage.getItem('auth_user');
-      
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { authentication } = response;
+      if (authentication?.idToken) {
+        handleGoogleSignIn(authentication.idToken);
       }
-    } catch (error) {
-      console.error('Error loading stored auth:', error);
-    } finally {
-      setLoading(false);
+    }
+  }, [response]);
+
+  const handleGoogleSignIn = async (idToken: string) => {
+    try {
+      const credential = GoogleAuthProvider.credential(idToken);
+      const result = await signInWithCredential(auth, credential);
+      
+      // Save user data to Firestore
+      const userRef = doc(db, 'users', result.user.uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (!userDoc.exists()) {
+        // New user - save to Firestore
+        await setDoc(userRef, {
+          name: result.user.displayName || '',
+          email: result.user.email || '',
+          createdAt: new Date().toISOString(),
+          photoURL: result.user.photoURL || null,
+        });
+      }
+      
+      return true;
+    } catch (error: any) {
+      setError(error.message || 'Google sign-in failed');
+      return false;
     }
   };
 
@@ -34,29 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       setError(null);
-
-      const response = await fetch('/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.user && data.token) {
-        setUser(data.user);
-        setToken(data.token);
-        await storage.setItem('auth_token', data.token);
-        await storage.setItem('auth_user', JSON.stringify(data.user));
-        return true;
-      } else {
-        setError(data.message || 'Login failed');
-        return false;
-      }
-    } catch (error) {
-      setError('Network error. Please try again.');
+      await signInWithEmailAndPassword(auth, email, password);
+      return true;
+    } catch (error: any) {
+      setError(error.message || 'Login failed');
       return false;
     } finally {
       setLoading(false);
@@ -67,45 +108,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       setError(null);
-
-      const response = await fetch('/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name, email, password }),
+      
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Update the user's display name
+      await updateProfile(result.user, { displayName: name });
+      
+      // Save additional user data to Firestore
+      await setDoc(doc(db, 'users', result.user.uid), {
+        name,
+        email,
+        createdAt: new Date().toISOString(),
       });
-
-      const data = await response.json();
-
-      if (data.success && data.user && data.token) {
-        setUser(data.user);
-        setToken(data.token);
-        await storage.setItem('auth_token', data.token);
-        await storage.setItem('auth_user', JSON.stringify(data.user));
-        return true;
-      } else {
-        setError(data.message || 'Registration failed');
-        return false;
-      }
-    } catch (error) {
-      setError('Network error. Please try again.');
+      
+      return true;
+    } catch (error: any) {
+      setError(error.message || 'Registration failed');
       return false;
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = async () => {
-    setUser(null);
-    setToken(null);
-    setError(null);
-    await storage.removeItem('auth_token');
-    await storage.removeItem('auth_user');
+  const loginWithGoogle = async (): Promise<boolean> => {
+    try {
+      setError(null);
+      await promptAsync();
+      return true;
+    } catch (error: any) {
+      setError(error.message || 'Google sign-in failed');
+      return false;
+    }
+  };
+
+  const logout = async (): Promise<void> => {
+    try {
+      await signOut(auth);
+      setError(null);
+    } catch (error: any) {
+      setError(error.message || 'Logout failed');
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, loading, error }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      login, 
+      register, 
+      loginWithGoogle,
+      logout, 
+      loading, 
+      error 
+    }}>
       {children}
     </AuthContext.Provider>
   );
