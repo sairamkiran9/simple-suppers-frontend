@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, User, Lock } from 'lucide-react-native';
+import { Chrome as Home, User, Lock } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 
 export default function TabLayout() {
