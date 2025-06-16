@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { User, Lock } from 'lucide-react-native';
+import { Home, User, Lock } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 
 export default function TabLayout() {
@@ -9,7 +9,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#007AFF',
+        tabBarActiveTintColor: '#6366F1',
         tabBarInactiveTintColor: '#6B7280',
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
@@ -18,6 +18,11 @@ export default function TabLayout() {
           paddingBottom: 8,
           paddingTop: 8,
           height: 80,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 8,
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -25,6 +30,17 @@ export default function TabLayout() {
         },
       }}
     >
+      {user && (
+        <Tabs.Screen
+          name="home"
+          options={{
+            title: 'Home',
+            tabBarIcon: ({ size, color }) => (
+              <Home size={size} color={color} />
+            ),
+          }}
+        />
+      )}
       <Tabs.Screen
         name="index"
         options={{
